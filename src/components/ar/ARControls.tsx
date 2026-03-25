@@ -1,5 +1,6 @@
-import { RotateCw, ZoomIn, MapPin, Sparkles, Film, ShoppingCart } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { RotateCw, Sparkles, Film, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import Joystick from "./Joystick";
 
 type AnimationType = "idle" | "walk" | "jump";
 
@@ -8,39 +9,29 @@ interface ARControlsProps {
   onJump: () => void;
   onToggleAnimation: () => void;
   onReset: () => void;
-  onOrder: () => void;
+  onMove: (dx: number, dy: number) => void;
+  onMoveStop: () => void;
 }
 
-const ARControls = ({ animation, onJump, onToggleAnimation, onReset, onOrder }: ARControlsProps) => {
+const ARControls = ({ animation, onJump, onToggleAnimation, onReset, onMove, onMoveStop }: ARControlsProps) => {
+  const navigate = useNavigate();
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pb-6">
-      {/* Main action buttons */}
-      <div className="mx-auto max-w-md">
-        {/* Order button */}
-        <Button
-          onClick={onOrder}
-          className="mb-3 w-full h-12 rounded-2xl bg-primary text-primary-foreground text-base font-bold shadow-lg hover:bg-primary/90"
-        >
-          <ShoppingCart className="mr-2 h-5 w-5" />
-          Order Sekarang
-        </Button>
+      <div className="mx-auto max-w-md flex items-end justify-between">
+        {/* Joystick - left side */}
+        <Joystick onMove={onMove} onStop={onMoveStop} size={110} />
 
-        {/* Control buttons row */}
-        <div className="flex gap-2 justify-center">
+        {/* Action buttons - right side */}
+        <div className="flex flex-col gap-2">
+          <ControlButton
+            icon={<ArrowLeft className="h-4 w-4" />}
+            label="Keluar"
+            onClick={() => navigate("/")}
+            active={false}
+          />
           <ControlButton
             icon={<RotateCw className="h-4 w-4" />}
-            label="Putar"
-            onClick={() => {}}
-            active={false}
-          />
-          <ControlButton
-            icon={<ZoomIn className="h-4 w-4" />}
-            label="Zoom"
-            onClick={() => {}}
-            active={false}
-          />
-          <ControlButton
-            icon={<MapPin className="h-4 w-4" />}
             label="Reset"
             onClick={onReset}
             active={false}
