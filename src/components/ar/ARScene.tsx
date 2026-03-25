@@ -1,6 +1,7 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment } from "@react-three/drei";
-import { Suspense, useRef, useState, useCallback } from "react";
+import { Suspense, useRef, useCallback, MutableRefObject } from "react";
+import { useFrame } from "@react-three/fiber";
 import PigModel from "./PigModel";
 import Ground from "./Ground";
 
@@ -11,9 +12,52 @@ interface ARSceneProps {
   onAnimationChange: (anim: AnimationType) => void;
   pigPosition: [number, number, number];
   resetTrigger: number;
+  moveRef: MutableRefObject<{ x: number; z: number }>;
+  onPositionChange: (pos: [number, number, number]) => void;
 }
 
-const ARScene = ({ animation, onAnimationChange, pigPosition, resetTrigger }: ARSceneProps) => {
+// Inner component to use useFrame
+const MovablePig = ({
+  animation,
+  onJumpComplete,
+  pigPosition,
+  onClick,
+  moveRef,
+  onPositionChange,
+}: {
+  animation: AnimationType;
+  onJumpComplete: () => void;
+  pigPosition: [number, number, number];
+  onClick: () => void;
+  moveRef: MutableRefObject<{ x: number; z: number }>;
+  onPositionChange: (pos: [number, number, number]) => void;
+}) => {
+  const posRef = useRef<[number, number, number]>([...pigPosition]);
+
+  useFrame((_, delta) => {
+    const { x, z } = moveRef.current;
+    if (Math.abs(x) > 0.05 || Math.abs(z) > 0.05) {
+      const speed = delta * 1.5;
+      posRef.current = [
+        posRef.current[0] + x * speed,
+        0,
+        posRef.current[2] + z * speed,
+      ];
+      onPositionChange([...posRef.current]);
+    }
+  });
+
+  return (
+    <PigModel
+      animation={animation}
+      onJumpComplete={onJumpComplete}
+      position={pigPosition}
+      onClick={onClick}
+    />
+  );
+};
+
+const ARScene = ({ animation, onAnimationChange, pigPosition, resetTrigger, moveRef, onPositionChange }: ARSceneProps) => {
   const controlsRef = useRef<any>(null);
 
   const handleJumpComplete = useCallback(() => {
@@ -31,7 +75,6 @@ const ARScene = ({ animation, onAnimationChange, pigPosition, resetTrigger }: AR
       style={{ position: "absolute", inset: 0 }}
       gl={{ alpha: true, antialias: true }}
     >
-      {/* Lighting */}
       <ambientLight intensity={0.5} />
       <directionalLight
         position={[3, 5, 2]}
@@ -48,23 +91,21 @@ const ARScene = ({ animation, onAnimationChange, pigPosition, resetTrigger }: AR
       />
       <directionalLight position={[-2, 3, -2]} intensity={0.3} />
 
-      {/* Environment for reflections */}
       <Environment preset="city" />
 
-      {/* Pig Model */}
       <Suspense fallback={null}>
-        <PigModel
+        <MovablePig
           animation={animation}
           onJumpComplete={handleJumpComplete}
-          position={pigPosition}
+          pigPosition={pigPosition}
           onClick={handlePigClick}
+          moveRef={moveRef}
+          onPositionChange={onPositionChange}
         />
       </Suspense>
 
-      {/* Ground with shadow */}
       <Ground />
 
-      {/* Orbit Controls */}
       <OrbitControls
         ref={controlsRef}
         target={[0, 0.3, 0]}
