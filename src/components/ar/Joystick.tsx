@@ -10,24 +10,32 @@ const Joystick = ({ onMove, onStop, size = 120 }: JoystickProps) => {
   const baseRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
   const [stickPos, setStickPos] = useState({ x: 0, y: 0 });
+
   const maxDist = size / 2 - 20;
+
+  const arrowAngle = Math.atan2(stickPos.y, stickPos.x);
 
   const getPos = useCallback(
     (clientX: number, clientY: number) => {
       if (!baseRef.current) return { x: 0, y: 0 };
+
       const rect = baseRef.current.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
+
       let dx = clientX - cx;
       let dy = clientY - cy;
+
       const dist = Math.sqrt(dx * dx + dy * dy);
+
       if (dist > maxDist) {
         dx = (dx / dist) * maxDist;
         dy = (dy / dist) * maxDist;
       }
+
       return { x: dx, y: dy };
     },
-    [maxDist]
+    [maxDist],
   );
 
   const handleStart = useCallback(
@@ -37,17 +45,18 @@ const Joystick = ({ onMove, onStop, size = 120 }: JoystickProps) => {
       setStickPos(pos);
       onMove(pos.x / maxDist, pos.y / maxDist);
     },
-    [getPos, maxDist, onMove]
+    [getPos, maxDist, onMove],
   );
 
   const handleMove = useCallback(
     (clientX: number, clientY: number) => {
       if (!dragging) return;
+
       const pos = getPos(clientX, clientY);
       setStickPos(pos);
       onMove(pos.x / maxDist, pos.y / maxDist);
     },
-    [dragging, getPos, maxDist, onMove]
+    [dragging, getPos, maxDist, onMove],
   );
 
   const handleEnd = useCallback(() => {
@@ -59,10 +68,14 @@ const Joystick = ({ onMove, onStop, size = 120 }: JoystickProps) => {
   useEffect(() => {
     const onTouchMove = (e: TouchEvent) => {
       if (!dragging) return;
-      e.preventDefault();
+      e.preventDefault(); // ✅ boleh di sini
       handleMove(e.touches[0].clientX, e.touches[0].clientY);
     };
-    const onMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY);
+
+    const onMouseMove = (e: MouseEvent) => {
+      handleMove(e.clientX, e.clientY);
+    };
+
     const onEnd = () => handleEnd();
 
     window.addEventListener("touchmove", onTouchMove, { passive: false });
@@ -82,18 +95,18 @@ const Joystick = ({ onMove, onStop, size = 120 }: JoystickProps) => {
     <div
       ref={baseRef}
       className="rounded-full border-2 border-foreground/20 bg-foreground/10 backdrop-blur-md relative"
-      style={{ width: size, height: size, touchAction: "none" }}
+      style={{
+        width: size,
+        height: size,
+        touchAction: "none", // 🔥 penting
+        userSelect: "none", // 🔥 biar ga ke-select
+      }}
       onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
       onTouchStart={(e) => {
-        e.preventDefault();
+        // ❌ jangan pakai preventDefault di sini
         handleStart(e.touches[0].clientX, e.touches[0].clientY);
       }}
     >
-      {/* Cross lines */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="absolute w-px h-3/5 bg-foreground/10" />
-        <div className="absolute h-px w-3/5 bg-foreground/10" />
-      </div>
       {/* Stick */}
       <div
         className="absolute rounded-full bg-primary shadow-lg border-2 border-primary-foreground/30"
@@ -105,7 +118,23 @@ const Joystick = ({ onMove, onStop, size = 120 }: JoystickProps) => {
           transform: `translate(calc(-50% + ${stickPos.x}px), calc(-50% + ${stickPos.y}px))`,
           transition: dragging ? "none" : "transform 0.2s ease-out",
         }}
-      />
+      >
+        {/* Arrow */}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: `translate(-50%, -50%) rotate(${arrowAngle + Math.PI / 2}rad)`,
+          }}
+        >
+          <path d="M12 4L20 12L12 20L4 12L12 4Z" fill="white" />
+        </svg>
+      </div>
     </div>
   );
 };

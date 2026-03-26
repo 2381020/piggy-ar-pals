@@ -1,9 +1,10 @@
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Environment } from "@react-three/drei";
-import { Suspense, useRef, useCallback, MutableRefObject } from "react";
-import { useFrame } from "@react-three/fiber";
-import PigModel from "./PigModel";
+import { Suspense, useRef, useCallback, useEffect, MutableRefObject } from "react";
+import PigModelGlb from "./PigModelGlb";
 import Ground from "./Ground";
+import * as THREE from "three";
+import blackPigUrl from "../../assets/black-pig.glb";
 
 type AnimationType = "idle" | "walk" | "jump";
 
@@ -13,52 +14,106 @@ interface ARSceneProps {
   pigPosition: [number, number, number];
   resetTrigger: number;
   moveRef: MutableRefObject<{ x: number; z: number }>;
-  onPositionChange: (pos: [number, number, number]) => void;
 }
 
-// Inner component to use useFrame
 const MovablePig = ({
   animation,
   onJumpComplete,
   pigPosition,
   onClick,
   moveRef,
-  onPositionChange,
+  resetTrigger,
 }: {
   animation: AnimationType;
   onJumpComplete: () => void;
   pigPosition: [number, number, number];
   onClick: () => void;
   moveRef: MutableRefObject<{ x: number; z: number }>;
-  onPositionChange: (pos: [number, number, number]) => void;
+  resetTrigger: number;
 }) => {
-  const posRef = useRef<[number, number, number]>([...pigPosition]);
+
+  const pigGroupRef = useRef<THREE.Group | null>(null);
+
+  // 🔥 velocity system
+  const velocity = useRef(new THREE.Vector3());
+
+  // ✅ INIT POSISI
+  useEffect(() => {
+    if (!pigGroupRef.current) return;
+
+    pigGroupRef.current.position.set(0, 0, -15);
+    pigGroupRef.current.rotation.y = Math.PI;
+  }, []);
+
+  // ✅ RESET (tidak ganggu movement)
+  useEffect(() => {
+    if (!pigGroupRef.current) return;
+
+    pigGroupRef.current.position.set(pigPosition[0], 0, pigPosition[2]);
+    velocity.current.set(0, 0, 0);
+  }, [resetTrigger]);
 
   useFrame((_, delta) => {
+    if (!pigGroupRef.current) return;
+
     const { x, z } = moveRef.current;
-    if (Math.abs(x) > 0.05 || Math.abs(z) > 0.05) {
-      const speed = delta * 1.5;
-      posRef.current = [
-        posRef.current[0] + x * speed,
-        0,
-        posRef.current[2] + z * speed,
-      ];
-      onPositionChange([...posRef.current]);
+
+    const moveSpeed = 6;
+    const accel = 6;
+    const friction = 5;
+
+    const inputDir = new THREE.Vector3(x, 0, z);
+
+    let targetVel = new THREE.Vector3(0, 0, 0);
+
+    // 🎮 movement logic
+    if (inputDir.length() > 0.001) {
+      targetVel = inputDir.normalize().multiplyScalar(moveSpeed);
+      velocity.current.lerp(targetVel, accel * delta);
+    } else {
+      velocity.current.lerp(new THREE.Vector3(0, 0, 0), friction * delta);
+    }
+
+    // 🚀 APPLY MOVEMENT
+    pigGroupRef.current.position.x += velocity.current.x * delta;
+    pigGroupRef.current.position.z += velocity.current.z * delta;
+
+    // 🔥 ROTASI SUPER SMOOTH (FIX MUNCUNG)
+    if (velocity.current.length() > 0.01) {
+      const dir = velocity.current.clone().normalize();
+
+      // ⚠️ kalau arah salah, ganti -Math.PI/2 jadi +Math.PI/2
+      const targetYaw = Math.atan2(dir.x, dir.z) - Math.PI / 2;
+
+      const currentYaw = pigGroupRef.current.rotation.y;
+
+      let deltaAngle =
+        ((targetYaw - currentYaw + Math.PI) % (Math.PI * 2)) - Math.PI;
+
+      const turnSmooth = 3;
+
+      pigGroupRef.current.rotation.y += deltaAngle * delta * turnSmooth;
     }
   });
 
   return (
-    <PigModel
+    <PigModelGlb
       animation={animation}
+      modelUrl={blackPigUrl}
       onJumpComplete={onJumpComplete}
-      position={pigPosition}
       onClick={onClick}
+      groupRef={pigGroupRef}
     />
   );
 };
 
-const ARScene = ({ animation, onAnimationChange, pigPosition, resetTrigger, moveRef, onPositionChange }: ARSceneProps) => {
-  const controlsRef = useRef<any>(null);
+const ARScene = ({
+  animation,
+  onAnimationChange,
+  pigPosition,
+  resetTrigger,
+  moveRef
+}: ARSceneProps) => {
 
   const handleJumpComplete = useCallback(() => {
     onAnimationChange("idle");
@@ -71,25 +126,22 @@ const ARScene = ({ animation, onAnimationChange, pigPosition, resetTrigger, move
   return (
     <Canvas
       shadows
-      camera={{ position: [0, 1, 2.5], fov: 50, near: 0.1, far: 100 }}
+      camera={{ position: [0, 2.5, 20], fov: 70 }}
       style={{ position: "absolute", inset: 0 }}
       gl={{ alpha: true, antialias: true }}
     >
-      <ambientLight intensity={0.5} />
+      {/* LIGHT */}
+      <ambientLight intensity={0.7} />
+
       <directionalLight
         position={[3, 5, 2]}
         intensity={1.2}
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
-        shadow-camera-far={20}
-        shadow-camera-near={0.1}
-        shadow-camera-left={-5}
-        shadow-camera-right={5}
-        shadow-camera-top={5}
-        shadow-camera-bottom={-5}
       />
-      <directionalLight position={[-2, 3, -2]} intensity={0.3} />
+
+      <directionalLight position={[-2, 3, -2]} intensity={0.4} />
 
       <Environment preset="city" />
 
@@ -100,22 +152,17 @@ const ARScene = ({ animation, onAnimationChange, pigPosition, resetTrigger, move
           pigPosition={pigPosition}
           onClick={handlePigClick}
           moveRef={moveRef}
-          onPositionChange={onPositionChange}
+          resetTrigger={resetTrigger}
         />
       </Suspense>
 
       <Ground />
 
       <OrbitControls
-        ref={controlsRef}
-        target={[0, 0.3, 0]}
-        enablePan={true}
-        enableZoom={true}
-        enableRotate={true}
-        minDistance={1}
-        maxDistance={8}
+        target={[0, 0, 0]}
+        minDistance={10}
+        maxDistance={40}
         maxPolarAngle={Math.PI / 2}
-        minPolarAngle={0.1}
       />
     </Canvas>
   );

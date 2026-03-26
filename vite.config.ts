@@ -13,6 +13,8 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  // Allow importing 3D model files (e.g. for react-three-fiber + drei).
+  assetsInclude: ["**/*.glb", "**/*.gltf"],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

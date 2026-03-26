@@ -18,7 +18,7 @@ const ARControls = ({ animation, onJump, onToggleAnimation, onReset, onMove, onM
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pb-6">
-      <div className="mx-auto max-w-md flex items-end justify-between">
+      <div className="mx-auto max-w-md flex items-end justify-between rounded-3xl bg-white/80 backdrop-blur-md shadow-lg px-4 py-3">
         {/* Joystick - left side */}
         <Joystick onMove={onMove} onStop={onMoveStop} size={110} />
 
@@ -67,7 +67,7 @@ const ControlButton = ({ icon, label, onClick, active }: ControlButtonProps) => 
     className={`flex flex-col items-center gap-1 rounded-2xl px-3 py-2.5 text-xs font-medium transition-all backdrop-blur-md ${
       active
         ? "bg-primary text-primary-foreground shadow-lg"
-        : "bg-foreground/10 text-foreground hover:bg-foreground/20"
+        : "bg-white/80 text-foreground hover:bg-white/95 border border-black/5"
     }`}
   >
     {icon}

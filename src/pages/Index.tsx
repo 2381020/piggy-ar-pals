@@ -42,7 +42,9 @@ const Index = () => {
   }, []);
 
   const handleMove = useCallback((dx: number, dy: number) => {
-    moveDir.current = { x: dx, z: dy };
+    // clientY axis di layar bertambah ke bawah, jadi untuk gerak "maju" (joystick ke atas)
+    // perlu membalik dy -> z.
+    moveDir.current = { x: dx, z: -dy };
   }, []);
 
   const handleMoveStop = useCallback(() => {
@@ -61,7 +63,6 @@ const Index = () => {
         pigPosition={pigPosition}
         resetTrigger={resetTrigger}
         moveRef={moveDir}
-        onPositionChange={setPigPosition}
       />
 
       {!loading && (

@@ -69,15 +69,7 @@ const Landing = () => {
           Settings
         </Button>
 
-        <Button
-          onClick={handleExit}
-          variant="outline"
-          className="h-12 rounded-2xl text-base font-semibold"
-          size="lg"
-        >
-          <LogOut className="mr-2 h-5 w-5" />
-          Exit
-        </Button>
+        
       </div>
     </div>
   );
