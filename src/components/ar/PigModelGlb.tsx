@@ -6,7 +6,7 @@ import { useAnimations, useGLTF } from "@react-three/drei";
 interface PigModelGlbProps {
   modelUrl: string;
   onClick?: () => void;
-  groupRef: MutableRefObject<THREE.Group | null>;
+  groupRef?: MutableRefObject<THREE.Group | null>;
 }
 
 const PigModelGlb = ({
@@ -22,7 +22,9 @@ const PigModelGlb = ({
 
   const setWrapperRef = useCallback((node: THREE.Group | null) => {
     wrapperRef.current = node;
-    groupRef.current = node;
+    if (groupRef) {
+      groupRef.current = node;
+    }
   }, [groupRef]);
 
   const { scene, animations } = useGLTF(modelUrl) as unknown as {

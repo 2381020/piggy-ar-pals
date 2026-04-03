@@ -84,7 +84,7 @@ const Index = () => {
 
       {/* ARScene render setelah gyro permission diberikan */}
       {cameraActive && gyroPermission && (
-        <ARScene groundDetected={floorState === "placed"} />
+        <ARScene floorState={floorState} />
       )}
 
       {/* ===== HEADER ===== */}
