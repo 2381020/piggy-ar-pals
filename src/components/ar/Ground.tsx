@@ -5,7 +5,7 @@ const Ground = () => {
     <>
       {/* 🔥 Contact Shadow - bayangan presisi mengikuti model */}
       <ContactShadows
-        position={[0, 0, 0]}
+        position={[0, 0, -3]}
         opacity={0.65}
         scale={8}
         blur={2}
@@ -17,7 +17,7 @@ const Ground = () => {
       {/* 🔥 Ground plane - menerima directional shadow */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -0.001, 0]}
+        position={[0, -0.001, -3]}
         receiveShadow
       >
         <planeGeometry args={[20, 20]} />

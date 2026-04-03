@@ -3,6 +3,7 @@ import { Environment } from "@react-three/drei";
 import { Suspense, useRef, useEffect } from "react";
 import PigModelGlb from "./PigModelGlb";
 import Ground from "./Ground";
+import DeviceOrientationCamera from "./DeviceOrientationCamera";
 import * as THREE from "three";
 import blackPigUrl from "../../assets/black-pig.glb";
 
@@ -13,11 +14,12 @@ interface ARSceneProps {
 const StaticPig = () => {
   const pigGroupRef = useRef<THREE.Group | null>(null);
 
-  // Posisi fix di depan kamera, di atas lantai
+  // Posisi fix di dunia 3D — babi diam di sini, tidak ikut kamera
   useEffect(() => {
     if (!pigGroupRef.current) return;
-    pigGroupRef.current.position.set(0, 0, 0);
-    pigGroupRef.current.rotation.y = Math.PI;
+    // Babi 3 meter di depan posisi awal kamera, di atas lantai (y=0)
+    pigGroupRef.current.position.set(0, 0, -3);
+    pigGroupRef.current.rotation.y = Math.PI; // Menghadap ke kamera
   }, []);
 
   return (
@@ -32,10 +34,18 @@ const ARScene = ({ groundDetected }: ARSceneProps) => {
   return (
     <Canvas
       shadows
-      camera={{ position: [0, 1.5, 4], fov: 50, near: 0.1, far: 100 }}
+      camera={{
+        position: [0, 1.2, 0], // Setinggi mata user (~1.2m)
+        fov: 60,
+        near: 0.1,
+        far: 100,
+      }}
       style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
       gl={{ alpha: true, antialias: true }}
     >
+      {/* 🔥 Kamera mengikuti orientasi HP (gyroscope) */}
+      <DeviceOrientationCamera />
+
       {/* LIGHT */}
       <ambientLight intensity={0.8} />
 

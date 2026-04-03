@@ -11,6 +11,7 @@ const Index = () => {
   const [cameraActive, setCameraActive] = useState(false);
   const [arMode, setArMode] = useState(true);
   const [floorState, setFloorState] = useState<FloorState>("searching");
+  const [gyroPermission, setGyroPermission] = useState(false);
 
   const handleCameraReady = useCallback(() => {
     setCameraActive(true);
@@ -23,9 +24,41 @@ const Index = () => {
     setTimeout(() => setLoading(false), 800);
   }, []);
 
-  // Simulasi deteksi lantai — setelah kamera aktif, tunggu 2.5 detik
+  // Request gyroscope permission (wajib di iOS 13+)
+  const requestGyroPermission = useCallback(async () => {
+    // Cek apakah DeviceOrientationEvent.requestPermission ada (iOS)
+    const DOE = DeviceOrientationEvent as any;
+    if (typeof DOE.requestPermission === "function") {
+      try {
+        const permission = await DOE.requestPermission();
+        if (permission === "granted") {
+          setGyroPermission(true);
+          return true;
+        } else {
+          console.warn("Gyroscope permission denied");
+          return false;
+        }
+      } catch (err) {
+        console.warn("Gyroscope permission error:", err);
+        return false;
+      }
+    } else {
+      // Android / desktop — permission tidak diperlukan
+      setGyroPermission(true);
+      return true;
+    }
+  }, []);
+
+  // Otomatis request gyro permission setelah kamera aktif
   useEffect(() => {
-    if (!cameraActive || !arMode) return;
+    if (cameraActive && arMode) {
+      requestGyroPermission();
+    }
+  }, [cameraActive, arMode, requestGyroPermission]);
+
+  // Simulasi deteksi lantai — setelah kamera aktif + gyro ready, tunggu 2.5 detik
+  useEffect(() => {
+    if (!cameraActive || !arMode || !gyroPermission) return;
 
     setFloorState("searching");
 
@@ -34,7 +67,7 @@ const Index = () => {
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [cameraActive, arMode]);
+  }, [cameraActive, arMode, gyroPermission]);
 
   // Ketuk layar untuk menempatkan babi setelah lantai terdeteksi
   const handlePlacePig = useCallback(() => {
@@ -49,8 +82,8 @@ const Index = () => {
 
       <CameraFeed onCameraReady={handleCameraReady} onCameraError={handleCameraError} />
 
-      {/* ARScene selalu render tapi babi hanya muncul jika sudah "placed" */}
-      {cameraActive && (
+      {/* ARScene render setelah gyro permission diberikan */}
+      {cameraActive && gyroPermission && (
         <ARScene groundDetected={floorState === "placed"} />
       )}
 
