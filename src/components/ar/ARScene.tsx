@@ -1,8 +1,8 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, DeviceOrientationControls, ContactShadows } from "@react-three/drei";
-import { Suspense, useRef } from "react";
+import { Suspense, useRef, useState } from "react";
 import PigModelGlb from "./PigModelGlb";
-import Ground from "./Ground";
+// Kita akan buat Ground internal di PlacementPig untuk handle pointer
 import * as THREE from "three";
 import blackPigUrl from "../../assets/black-pig.glb";
 
@@ -16,41 +16,38 @@ interface ARSceneProps {
 const PlacementPig = ({ floorState, pigScale }: { floorState: FloorState; pigScale: number }) => {
   const pigGroupRef = useRef<THREE.Group | null>(null);
   const { camera } = useThree();
+  const [isDragging, setIsDragging] = useState(false);
   
-  const raycaster = useRef(new THREE.Raycaster());
-  // Bidang lantai diasumsikan di ketinggian y=0
-  const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
   const targetPos = useRef(new THREE.Vector3(0, 0, -3));
 
   useFrame(() => {
     if (!pigGroupRef.current) return;
 
     if (floorState === "detected") {
-      // 1. Ambil arah hadap kamera (DeviceOrientation)
+      // Saat mencari (detected), babi mengikuti kamera di jarak 3m
       const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-      
-      // Abaikan komponen Y (pitch asumsikan 0) agar jarak maju selalu konsisten di bidang datar lantai
       dir.y = 0;
-      
-      // Jika user tiba-tiba menghadap persis lurus ke atas/bawah, dir bisa jadi 0, kasih fallback
-      if (dir.lengthSq() < 0.001) {
-        dir.set(0, 0, -1);
-      } else {
-        dir.normalize();
-      }
+      if (dir.lengthSq() < 0.001) dir.set(0, 0, -1);
+      else dir.normalize();
 
-      // 2. Taruh babi persis sejauh jarak tertentu (misal 3 meter) di depan pandangan horizontal kamera
       const distance = 3;
-      const targetX = camera.position.x + dir.x * distance;
-      const targetZ = camera.position.z + dir.z * distance;
-      
-      // Y SELALU 0 agar tidak melayang ke udara
-      targetPos.current.set(targetX, 0, targetZ);
+      targetPos.current.set(
+        camera.position.x + dir.x * distance,
+        0,
+        camera.position.z + dir.z * distance
+      );
 
-      // Transisi posisi babi secara halus ke tujuan efek menyeret
       pigGroupRef.current.position.lerp(targetPos.current, 0.25);
       
-      // 3. Babi saling menatap kamera
+      const dx = camera.position.x - pigGroupRef.current.position.x;
+      const dz = camera.position.z - pigGroupRef.current.position.z;
+      pigGroupRef.current.rotation.y = Math.atan2(dx, dz);
+    } 
+    else if (floorState === "placed" && isDragging) {
+      // Saat digeser (placed & dragging), transisikan perlahan ke posisi jari supaya smooth
+      pigGroupRef.current.position.lerp(targetPos.current, 0.3);
+      
+      // Babi tetap menghadap kamera
       const dx = camera.position.x - pigGroupRef.current.position.x;
       const dz = camera.position.z - pigGroupRef.current.position.z;
       pigGroupRef.current.rotation.y = Math.atan2(dx, dz);
@@ -58,22 +55,64 @@ const PlacementPig = ({ floorState, pigScale }: { floorState: FloorState; pigSca
   });
 
   return (
-    // Grup ini bergerak saat "detected", lalu DIAM PERMANEN saat "placed"
-    <group ref={pigGroupRef} position={[0, 0, -3]} scale={pigScale}>
-      {/* Jangan teruskan groupRef ke dalam PigModelGlb karena ref sudah dipakai di <group> wrapper ini */}
-      <PigModelGlb modelUrl={blackPigUrl} />
+    <>
+      {/* Bidang transparan sangat besar sebagai pendeteksi sentuhan jari untuk menggeser */}
+      {floorState === "placed" && (
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0, 0]}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            setIsDragging(true);
+            targetPos.current.set(e.point.x, 0, e.point.z);
+            if (e.target && "setPointerCapture" in e.target) {
+              (e.target as any).setPointerCapture(e.pointerId);
+            }
+          }}
+          onPointerMove={(e) => {
+            if (isDragging) {
+              e.stopPropagation();
+              targetPos.current.set(e.point.x, 0, e.point.z);
+            }
+          }}
+          onPointerUp={(e) => {
+            e.stopPropagation();
+            setIsDragging(false);
+            if (e.target && "releasePointerCapture" in e.target) {
+              (e.target as any).releasePointerCapture(e.pointerId);
+            }
+          }}
+          // Kita jadikan transparan sepenuhnya, hanya untuk mendeteksi pointer
+          visible={false}
+        >
+          <planeGeometry args={[100, 100]} />
+        </mesh>
+      )}
+
+      {/* Model Babi */}
+      <group ref={pigGroupRef} position={[0, 0, -3]} scale={pigScale}>
+        <PigModelGlb modelUrl={blackPigUrl} />
+        <ContactShadows
+          position={[0, 0, 0]}
+          opacity={0.65}
+          scale={8}
+          blur={2}
+          far={5}
+          resolution={1024}
+          color="#000000"
+        />
+      </group>
       
-      {/* Contact Shadow digabung ke grup babi, jadi akan ikut pindah-pindah otomatis */}
-      <ContactShadows
-        position={[0, 0, 0]}
-        opacity={0.65}
-        scale={8}
-        blur={2}
-        far={5}
-        resolution={1024}
-        color="#000000"
-      />
-    </group>
+      {/* Ground plane untuk menerima bayangan directional light (yang asli tetap ada agar bayangan nampak) */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -0.001, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[100, 100]} />
+        <meshStandardMaterial transparent opacity={0.1} /> {/* transparansi 0 agar tak terlihat */}
+      </mesh>
+    </>
   );
 };
 
@@ -82,20 +121,19 @@ const ARScene = ({ floorState, pigScale }: ARSceneProps) => {
     <Canvas
       shadows
       camera={{
-        position: [0, 1.2, 0], // Setinggi mata rata-rata user (~1.2m) di dunia virtual
+        position: [0, 1.2, 0],
         fov: 60,
         near: 0.1,
         far: 100,
       }}
-      style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+      // HAPUS pointerEvents: "none" agar deteksi jari bisa berjalan!
+      style={{ position: "absolute", inset: 0 }}
       gl={{ alpha: true, antialias: true }}
     >
-      {/* 🔥 Gyroscope Control aktif agar kamera bisa berputar saat user mencari tempat */}
       {(floorState === "detected" || floorState === "placed") && (
         <DeviceOrientationControls />
       )}
 
-      {/* LIGHT */}
       <ambientLight intensity={0.8} />
 
       <directionalLight
@@ -117,15 +155,11 @@ const ARScene = ({ floorState, pigScale }: ARSceneProps) => {
 
       <Environment preset="city" />
 
-      {/* Tampilkan babi saat sedang "detected" (preview posisi) atau "placed" (fix) */}
       {(floorState === "detected" || floorState === "placed") && (
         <Suspense fallback={null}>
           <PlacementPig floorState={floorState} pigScale={pigScale} />
         </Suspense>
       )}
-
-      {/* Ground (Penerima bayangan matahari) selalu di tengah dunia di Y = 0 */}
-      {(floorState === "detected" || floorState === "placed") && <Ground />}
     </Canvas>
   );
 };
