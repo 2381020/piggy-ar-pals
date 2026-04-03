@@ -26,25 +26,31 @@ const PlacementPig = ({ floorState, pigScale }: { floorState: FloorState; pigSca
     if (!pigGroupRef.current) return;
 
     if (floorState === "detected") {
-      // 1. Tembak raycaster dari tengah layar (koordinat 0,0 dari kamera) ke lantai Y=0
-      raycaster.current.setFromCamera(new THREE.Vector2(0, 0), camera);
-      const hitPoint = new THREE.Vector3();
-      raycaster.current.ray.intersectPlane(plane.current, hitPoint);
+      // 1. Ambil arah hadap kamera (DeviceOrientation)
+      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
       
-      if (hitPoint) {
-        // Jangan biarkan babi jatuh terlalu jauh (max radius 8 meter dari kamera)
-        const camPosFloor = new THREE.Vector3(camera.position.x, 0, camera.position.z);
-        if (hitPoint.distanceTo(camPosFloor) > 8) {
-           const dir = hitPoint.sub(camPosFloor).normalize();
-           hitPoint.copy(camPosFloor.clone().add(dir.multiplyScalar(8)));
-        }
-        targetPos.current.copy(hitPoint);
+      // Abaikan komponen Y (pitch asumsikan 0) agar jarak maju selalu konsisten di bidang datar lantai
+      dir.y = 0;
+      
+      // Jika user tiba-tiba menghadap persis lurus ke atas/bawah, dir bisa jadi 0, kasih fallback
+      if (dir.lengthSq() < 0.001) {
+        dir.set(0, 0, -1);
+      } else {
+        dir.normalize();
       }
 
-      // 2. Transisi posisi babi secara halus ke tujuan (efek dragging)
-      pigGroupRef.current.position.lerp(targetPos.current, 0.15);
+      // 2. Taruh babi persis sejauh jarak tertentu (misal 3 meter) di depan pandangan horizontal kamera
+      const distance = 3;
+      const targetX = camera.position.x + dir.x * distance;
+      const targetZ = camera.position.z + dir.z * distance;
       
-      // 3. Pastikan babi selalu memutar wajahnya menatap arah kamera (user)
+      // Y SELALU 0 agar tidak melayang ke udara
+      targetPos.current.set(targetX, 0, targetZ);
+
+      // Transisi posisi babi secara halus ke tujuan efek menyeret
+      pigGroupRef.current.position.lerp(targetPos.current, 0.25);
+      
+      // 3. Babi saling menatap kamera
       const dx = camera.position.x - pigGroupRef.current.position.x;
       const dz = camera.position.z - pigGroupRef.current.position.z;
       pigGroupRef.current.rotation.y = Math.atan2(dx, dz);
