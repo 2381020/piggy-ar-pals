@@ -1,9 +1,8 @@
 import { Canvas } from "@react-three/fiber";
-import { Environment } from "@react-three/drei";
+import { Environment, DeviceOrientationControls } from "@react-three/drei";
 import { Suspense, useRef, useEffect } from "react";
 import PigModelGlb from "./PigModelGlb";
 import Ground from "./Ground";
-import DeviceOrientationCamera from "./DeviceOrientationCamera";
 import * as THREE from "three";
 import blackPigUrl from "../../assets/black-pig.glb";
 
@@ -43,8 +42,8 @@ const ARScene = ({ groundDetected }: ARSceneProps) => {
       style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
       gl={{ alpha: true, antialias: true }}
     >
-      {/* 🔥 Kamera mengikuti orientasi HP (gyroscope) */}
-      <DeviceOrientationCamera />
+      {/* 🔥 Kamera mengikuti orientasi HP (gyroscope) menggunakan kontrol bawaan drei */}
+      {groundDetected && <DeviceOrientationControls />}
 
       {/* LIGHT */}
       <ambientLight intensity={0.8} />
