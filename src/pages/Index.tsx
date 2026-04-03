@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import CameraFeed from "@/components/ar/CameraFeed";
 import ARScene from "@/components/ar/ARScene";
 import LoadingScreen from "@/components/ar/LoadingScreen";
+import { Slider } from "@/components/ui/slider";
 
 type FloorState = "searching" | "detected" | "placed";
 
@@ -12,6 +13,7 @@ const Index = () => {
   const [arMode, setArMode] = useState(true);
   const [floorState, setFloorState] = useState<FloorState>("searching");
   const [gyroPermission, setGyroPermission] = useState(false);
+  const [pigScale, setPigScale] = useState([1]); // Default scale 1x
 
   const handleCameraReady = useCallback(() => {
     setCameraActive(true);
@@ -84,7 +86,7 @@ const Index = () => {
 
       {/* ARScene render setelah gyro permission diberikan */}
       {cameraActive && gyroPermission && (
-        <ARScene floorState={floorState} />
+        <ARScene floorState={floorState} pigScale={pigScale[0]} />
       )}
 
       {/* ===== HEADER ===== */}
@@ -147,6 +149,26 @@ const Index = () => {
             </div>
             <p className="text-white text-sm font-medium">Lantai terdeteksi! ✅</p>
             <p className="text-white/80 text-xs font-medium">Ketuk layar untuk menempatkan babi 🐷</p>
+          </div>
+        </div>
+      )}
+
+      {/* ===== SCALE SLIDER ===== */}
+      {!loading && cameraActive && (floorState === "detected" || floorState === "placed") && (
+        <div className="fixed bottom-8 left-0 right-0 px-8 z-50 flex flex-col items-center gap-2">
+          <div className="bg-black/60 backdrop-blur-md px-4 py-3 rounded-2xl w-full max-w-xs border border-white/10 flex flex-col gap-3">
+            <div className="flex justify-between items-center px-1">
+              <span className="text-white/80 text-xs font-medium">Ukuran Babi</span>
+              <span className="text-primary text-xs font-bold">{pigScale[0].toFixed(1)}x</span>
+            </div>
+            <Slider
+              value={pigScale}
+              onValueChange={setPigScale}
+              max={3}
+              min={0.3}
+              step={0.1}
+              className="w-full"
+            />
           </div>
         </div>
       )}

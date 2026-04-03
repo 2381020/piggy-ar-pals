@@ -10,9 +10,10 @@ type FloorState = "searching" | "detected" | "placed";
 
 interface ARSceneProps {
   floorState: FloorState;
+  pigScale: number;
 }
 
-const PlacementPig = ({ floorState }: { floorState: FloorState }) => {
+const PlacementPig = ({ floorState, pigScale }: { floorState: FloorState; pigScale: number }) => {
   const pigGroupRef = useRef<THREE.Group | null>(null);
   const { camera } = useThree();
   
@@ -52,7 +53,7 @@ const PlacementPig = ({ floorState }: { floorState: FloorState }) => {
 
   return (
     // Grup ini bergerak saat "detected", lalu DIAM PERMANEN saat "placed"
-    <group ref={pigGroupRef} position={[0, 0, -3]}>
+    <group ref={pigGroupRef} position={[0, 0, -3]} scale={pigScale}>
       {/* Jangan teruskan groupRef ke dalam PigModelGlb karena ref sudah dipakai di <group> wrapper ini */}
       <PigModelGlb modelUrl={blackPigUrl} />
       
@@ -70,7 +71,7 @@ const PlacementPig = ({ floorState }: { floorState: FloorState }) => {
   );
 };
 
-const ARScene = ({ floorState }: ARSceneProps) => {
+const ARScene = ({ floorState, pigScale }: ARSceneProps) => {
   return (
     <Canvas
       shadows
@@ -113,7 +114,7 @@ const ARScene = ({ floorState }: ARSceneProps) => {
       {/* Tampilkan babi saat sedang "detected" (preview posisi) atau "placed" (fix) */}
       {(floorState === "detected" || floorState === "placed") && (
         <Suspense fallback={null}>
-          <PlacementPig floorState={floorState} />
+          <PlacementPig floorState={floorState} pigScale={pigScale} />
         </Suspense>
       )}
 
