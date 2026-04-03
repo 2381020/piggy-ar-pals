@@ -11,6 +11,9 @@ const Joystick = ({ onMove, onStop, size = 120 }: JoystickProps) => {
   const [dragging, setDragging] = useState(false);
   const [stickPos, setStickPos] = useState({ x: 0, y: 0 });
 
+  // Ref untuk nilai terkini agar bisa dibaca di RAF loop
+  const currentPosRef = useRef({ x: 0, y: 0 });
+  const draggingRef = useRef(false);
   const maxDist = size / 2 - 20;
 
   const arrowAngle = Math.atan2(stickPos.y, stickPos.x);
@@ -40,8 +43,10 @@ const Joystick = ({ onMove, onStop, size = 120 }: JoystickProps) => {
 
   const handleStart = useCallback(
     (clientX: number, clientY: number) => {
+      draggingRef.current = true;
       setDragging(true);
       const pos = getPos(clientX, clientY);
+      currentPosRef.current = pos;
       setStickPos(pos);
       onMove(pos.x / maxDist, pos.y / maxDist);
     },
@@ -50,25 +55,28 @@ const Joystick = ({ onMove, onStop, size = 120 }: JoystickProps) => {
 
   const handleMove = useCallback(
     (clientX: number, clientY: number) => {
-      if (!dragging) return;
+      if (!draggingRef.current) return;
 
       const pos = getPos(clientX, clientY);
+      currentPosRef.current = pos;
       setStickPos(pos);
       onMove(pos.x / maxDist, pos.y / maxDist);
     },
-    [dragging, getPos, maxDist, onMove],
+    [getPos, maxDist, onMove],
   );
 
   const handleEnd = useCallback(() => {
+    draggingRef.current = false;
     setDragging(false);
+    currentPosRef.current = { x: 0, y: 0 };
     setStickPos({ x: 0, y: 0 });
     onStop();
   }, [onStop]);
 
   useEffect(() => {
     const onTouchMove = (e: TouchEvent) => {
-      if (!dragging) return;
-      e.preventDefault(); // ✅ boleh di sini
+      if (!draggingRef.current) return;
+      e.preventDefault();
       handleMove(e.touches[0].clientX, e.touches[0].clientY);
     };
 
@@ -89,7 +97,7 @@ const Joystick = ({ onMove, onStop, size = 120 }: JoystickProps) => {
       window.removeEventListener("touchend", onEnd);
       window.removeEventListener("mouseup", onEnd);
     };
-  }, [dragging, handleMove, handleEnd]);
+  }, [handleMove, handleEnd]);
 
   return (
     <div

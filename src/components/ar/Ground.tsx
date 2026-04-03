@@ -3,21 +3,21 @@ import { ContactShadows } from "@react-three/drei";
 const Ground = () => {
   return (
     <>
-      {/* 🔥 Contact Shadow (lebih presisi) */}
+      {/* 🔥 Contact Shadow - bayangan presisi mengikuti model */}
       <ContactShadows
-        position={[0, 0, 0]}   // 🔥 sejajar lantai (bukan -0.01)
-        opacity={0.5}
-        scale={6}              // 🔥 jangan terlalu besar
+        position={[0, 0, 0]}
+        opacity={0.65}
+        scale={8}
         blur={2}
-        far={3}                // 🔥 lebih fokus
-        resolution={512}       // 🔥 shadow lebih halus
+        far={5}
+        resolution={1024}
         color="#000000"
       />
 
-      {/* 🔥 Invisible ground */}
+      {/* 🔥 Ground plane - menerima directional shadow */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0, 0]}   // 🔥 sejajar dengan shadow
+        position={[0, -0.001, 0]}
         receiveShadow
       >
         <planeGeometry args={[20, 20]} />

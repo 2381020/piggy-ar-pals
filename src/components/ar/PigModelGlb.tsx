@@ -1,23 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
-import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useAnimations, useGLTF } from "@react-three/drei";
 
-type AnimationType = "idle" | "walk" | "jump";
-
 interface PigModelGlbProps {
-  animation: AnimationType;
   modelUrl: string;
-  onJumpComplete?: () => void;
   onClick?: () => void;
   groupRef: MutableRefObject<THREE.Group | null>;
 }
 
 const PigModelGlb = ({
-  animation,
   modelUrl,
-  onJumpComplete,
   onClick,
   groupRef
 }: PigModelGlbProps) => {
@@ -26,10 +19,6 @@ const PigModelGlb = ({
 
   const wrapperRef = useRef<THREE.Group | null>(null);
   const modelRef = useRef<THREE.Group | null>(null);
-
-  const baseYRef = useRef(0);
-  const isJumping = useRef(false);
-  const jumpProgressRef = useRef(0);
 
   const setWrapperRef = useCallback((node: THREE.Group | null) => {
     wrapperRef.current = node;
@@ -61,61 +50,32 @@ const PigModelGlb = ({
     setOffset(new THREE.Vector3(offsetX, offsetY, offsetZ));
   }, [scene]);
 
+  // ================= ENABLE SHADOW =================
+  useEffect(() => {
+    scene.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+  }, [scene]);
+
   // ================= BASE Y =================
   useEffect(() => {
     if (!wrapperRef.current) return;
-
     wrapperRef.current.position.y = 0;
-    baseYRef.current = 0;
   }, []);
 
-  // ================= 🔍 DEBUG ANIMATION =================
-  useEffect(() => {
-    console.log("Animation Clips:", animations.map(a => a.name));
-  }, [animations]);
-
-  // ================= 🔥 AUTO PLAY (TEST) =================
+  // ================= AUTO PLAY IDLE ANIMATION =================
   useEffect(() => {
     if (!actions) return;
 
     Object.values(actions).forEach((action) => {
-      action.reset().fadeIn(0.3).play();
+      if (action) {
+        action.reset().fadeIn(0.3).play();
+      }
     });
   }, [actions]);
-
-  // ================= JUMP =================
-  useEffect(() => {
-    if (animation === "jump" && !isJumping.current) {
-      isJumping.current = true;
-      jumpProgressRef.current = 0;
-    }
-  }, [animation]);
-
-  useFrame((_, delta) => {
-    if (!wrapperRef.current) return;
-
-    if (isJumping.current) {
-      jumpProgressRef.current += delta * 2.5;
-
-      const t = Math.min(jumpProgressRef.current, 1);
-      const height = Math.sin(t * Math.PI) * 0.3;
-
-      wrapperRef.current.position.y = baseYRef.current + height;
-
-      if (t >= 1) {
-        isJumping.current = false;
-        onJumpComplete?.();
-      }
-
-      return;
-    }
-
-    wrapperRef.current.position.y = THREE.MathUtils.lerp(
-      wrapperRef.current.position.y,
-      baseYRef.current,
-      delta * 5
-    );
-  });
 
   // ================= RENDER =================
   return (

@@ -1,169 +1,72 @@
-import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Environment } from "@react-three/drei";
-import { Suspense, useRef, useCallback, useEffect, MutableRefObject } from "react";
+import { Canvas } from "@react-three/fiber";
+import { Environment } from "@react-three/drei";
+import { Suspense, useRef, useEffect } from "react";
 import PigModelGlb from "./PigModelGlb";
 import Ground from "./Ground";
 import * as THREE from "three";
 import blackPigUrl from "../../assets/black-pig.glb";
 
-type AnimationType = "idle" | "walk" | "jump";
-
 interface ARSceneProps {
-  animation: AnimationType;
-  onAnimationChange: (anim: AnimationType) => void;
-  pigPosition: [number, number, number];
-  resetTrigger: number;
-  moveRef: MutableRefObject<{ x: number; z: number }>;
+  groundDetected: boolean;
 }
 
-const MovablePig = ({
-  animation,
-  onJumpComplete,
-  pigPosition,
-  onClick,
-  moveRef,
-  resetTrigger,
-}: {
-  animation: AnimationType;
-  onJumpComplete: () => void;
-  pigPosition: [number, number, number];
-  onClick: () => void;
-  moveRef: MutableRefObject<{ x: number; z: number }>;
-  resetTrigger: number;
-}) => {
-
+const StaticPig = () => {
   const pigGroupRef = useRef<THREE.Group | null>(null);
 
-  // 🔥 velocity system
-  const velocity = useRef(new THREE.Vector3());
-
-  // ✅ INIT POSISI
+  // Posisi fix di depan kamera, di atas lantai
   useEffect(() => {
     if (!pigGroupRef.current) return;
-
-    pigGroupRef.current.position.set(0, 0, -15);
+    pigGroupRef.current.position.set(0, 0, 0);
     pigGroupRef.current.rotation.y = Math.PI;
   }, []);
 
-  // ✅ RESET (tidak ganggu movement)
-  useEffect(() => {
-    if (!pigGroupRef.current) return;
-
-    pigGroupRef.current.position.set(pigPosition[0], 0, pigPosition[2]);
-    velocity.current.set(0, 0, 0);
-  }, [resetTrigger]);
-
-  useFrame((_, delta) => {
-    if (!pigGroupRef.current) return;
-
-    const { x, z } = moveRef.current;
-
-    const moveSpeed = 6;
-    const accel = 6;
-    const friction = 5;
-
-    const inputDir = new THREE.Vector3(x, 0, z);
-
-    let targetVel = new THREE.Vector3(0, 0, 0);
-
-    // 🎮 movement logic
-    if (inputDir.length() > 0.001) {
-      targetVel = inputDir.normalize().multiplyScalar(moveSpeed);
-      velocity.current.lerp(targetVel, accel * delta);
-    } else {
-      velocity.current.lerp(new THREE.Vector3(0, 0, 0), friction * delta);
-    }
-
-    // 🚀 APPLY MOVEMENT
-    pigGroupRef.current.position.x += velocity.current.x * delta;
-    pigGroupRef.current.position.z += velocity.current.z * delta;
-
-    // 🔥 ROTASI SUPER SMOOTH (FIX MUNCUNG)
-    if (velocity.current.length() > 0.01) {
-      const dir = velocity.current.clone().normalize();
-
-      // ⚠️ kalau arah salah, ganti -Math.PI/2 jadi +Math.PI/2
-      const targetYaw = Math.atan2(dir.x, dir.z) - Math.PI / 2;
-
-      const currentYaw = pigGroupRef.current.rotation.y;
-
-      let deltaAngle =
-        ((targetYaw - currentYaw + Math.PI) % (Math.PI * 2)) - Math.PI;
-
-      const turnSmooth = 3;
-
-      pigGroupRef.current.rotation.y += deltaAngle * delta * turnSmooth;
-    }
-  });
-
   return (
     <PigModelGlb
-      animation={animation}
       modelUrl={blackPigUrl}
-      onJumpComplete={onJumpComplete}
-      onClick={onClick}
       groupRef={pigGroupRef}
     />
   );
 };
 
-const ARScene = ({
-  animation,
-  onAnimationChange,
-  pigPosition,
-  resetTrigger,
-  moveRef
-}: ARSceneProps) => {
-
-  const handleJumpComplete = useCallback(() => {
-    onAnimationChange("idle");
-  }, [onAnimationChange]);
-
-  const handlePigClick = useCallback(() => {
-    onAnimationChange("jump");
-  }, [onAnimationChange]);
-
+const ARScene = ({ groundDetected }: ARSceneProps) => {
   return (
     <Canvas
       shadows
-      camera={{ position: [0, 2.5, 20], fov: 70 }}
-      style={{ position: "absolute", inset: 0 }}
+      camera={{ position: [0, 1.5, 4], fov: 50, near: 0.1, far: 100 }}
+      style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
       gl={{ alpha: true, antialias: true }}
     >
       {/* LIGHT */}
-      <ambientLight intensity={0.7} />
+      <ambientLight intensity={0.8} />
 
       <directionalLight
-        position={[3, 5, 2]}
-        intensity={1.2}
+        position={[2, 4, 3]}
+        intensity={1.5}
         castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-left={-5}
+        shadow-camera-right={5}
+        shadow-camera-top={5}
+        shadow-camera-bottom={-5}
+        shadow-camera-near={0.1}
+        shadow-camera-far={20}
+        shadow-bias={-0.002}
       />
 
-      <directionalLight position={[-2, 3, -2]} intensity={0.4} />
+      <directionalLight position={[-2, 3, -1]} intensity={0.3} />
 
       <Environment preset="city" />
 
-      <Suspense fallback={null}>
-        <MovablePig
-          animation={animation}
-          onJumpComplete={handleJumpComplete}
-          pigPosition={pigPosition}
-          onClick={handlePigClick}
-          moveRef={moveRef}
-          resetTrigger={resetTrigger}
-        />
-      </Suspense>
+      {/* Babi hanya muncul jika lantai terdeteksi */}
+      {groundDetected && (
+        <Suspense fallback={null}>
+          <StaticPig />
+        </Suspense>
+      )}
 
-      <Ground />
-
-      <OrbitControls
-        target={[0, 0, 0]}
-        minDistance={10}
-        maxDistance={40}
-        maxPolarAngle={Math.PI / 2}
-      />
+      {/* Ground & shadow hanya muncul jika lantai terdeteksi */}
+      {groundDetected && <Ground />}
     </Canvas>
   );
 };
